@@ -308,6 +308,31 @@ In Task Scheduler: create a basic task, trigger Daily, action = run `groktag_run
 
 ---
 
-## License
+## Ideas
+
+Things that would be a natural next step for groktag — contributions welcome.
+
+### Hippie-generated cover art
+
+The xAI API supports image generation. When no cover art is found in the source folder,
+groktag could ask the hippie to generate one — a cover image, an inlay, a back cover —
+in whatever visual style he thinks fits the album. Given that this is the same entity who
+has opinions on Kubrick and believes he can hear MP3 artifacts, his album art will be
+*interesting*.
+
+Possible prompt approach: feed the album title, artist, year, and genre to a Grok image
+generation call. Let him write his own image prompt in the style he sees fit. The result
+goes to `cover.jpg` and optionally `inlay.jpg`.
+
+Cost note: image generation is priced separately from text — check xAI pricing before
+enabling on large collections.
+
+### Other ideas
+
+- `--genre-filter` to only process certain genres (if tags are already partially populated)
+- Embedded cover art — write `cover.jpg` into the FLAC metadata block, not just as a sidecar file
+- MusicBrainz Release ID tag (`MUSICBRAINZ_ALBUMID`) for perfect library matching in Beets/Picard
+- `--undo` mode — groktag.log records original filenames, so a rollback is theoretically possible
+- Web UI for reviewing the hippie's decisions before applying them
 
 GPL-3.0 — see [LICENSE](LICENSE).
