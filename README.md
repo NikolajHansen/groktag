@@ -223,7 +223,93 @@ groktag [root]                    # default: current directory
 
 ---
 
-## Notes
+## Cost Warning
+
+> **groktag makes one Grok API call per album directory.** On a large collection this adds up.
+
+Each album sends roughly 5–30KB of JSON (filenames, existing tags, AcoustID results, MusicBrainz
+candidates for every track) and receives a few KB of JSON back plus the hippie's commentary.
+A rough estimate for `grok-3`:
+
+| Collection size | Albums | Approx. input tokens | Approx. cost |
+|---|---|---|---|
+| Small (50 albums) | 50 | ~500K | ~$1–2 |
+| Medium (500 albums) | 500 | ~5M | ~$10–20 |
+| Large (5000 albums) | 5000 | ~50M | ~$100–200 |
+
+These are rough estimates — actual cost depends on album size, MusicBrainz result depth, and
+commentary length. The `groktag.log` skip mechanism means **you only pay once per album** — 
+re-runs on already-processed folders cost nothing.
+
+**Check current xAI pricing before running on a large collection:**
+👉 [x.ai/api](https://x.ai/api#pricing)
+
+To minimise cost:
+- Always do a `--dry-run` first to catch problems before committing API calls
+- Use `-j 1` or `-j 2` to avoid hammering the API
+- The `--model grok-3-mini` (if available) may be cheaper for straightforward collections
+
+---
+
+## Automated / Cron Usage
+
+Because groktag skips already-processed folders (`groktag.log`), it is safe to point at a
+watched music drop folder and run on a schedule — it will only process genuinely new albums.
+
+### Linux / macOS / FreeBSD (cron)
+
+Add to crontab with `crontab -e`:
+
+```cron
+# Run groktag every night at 02:00 on new albums in /music/inbox
+0 2 * * * XAI_API_KEY=your_xai_key /usr/local/bin/groktag /music/inbox \
+  --api-key your_acoustid_key -j 2 >> /var/log/groktag.log 2>&1
+```
+
+Or as a dedicated cron file in `/etc/cron.d/groktag`:
+
+```
+0 2 * * * youruser XAI_API_KEY=your_xai_key /usr/local/bin/groktag /music/inbox \
+  --api-key your_acoustid_key -j 2 >> /var/log/groktag.log 2>&1
+```
+
+### FreeBSD (periodic)
+
+Add to `/etc/periodic.conf`:
+
+```sh
+daily_local="/usr/local/etc/periodic/daily/groktag"
+```
+
+Create `/usr/local/etc/periodic/daily/groktag`:
+
+```sh
+#!/bin/sh
+export XAI_API_KEY=your_xai_key
+/usr/local/bin/groktag /greenlake/media/music/inbox \
+  --api-key your_acoustid_key \
+  --dataset greenlake/media \
+  -j 2
+```
+
+```sh
+chmod +x /usr/local/etc/periodic/daily/groktag
+```
+
+### Windows (Task Scheduler)
+
+Create a batch file `groktag_run.bat`:
+
+```bat
+@echo off
+set XAI_API_KEY=your_xai_key
+python C:\path\to\groktag.py C:\Music\Inbox --api-key your_acoustid_key -j 2 >> C:\Logs\groktag.log 2>&1
+```
+
+In Task Scheduler: create a basic task, trigger Daily, action = run `groktag_run.bat`.
+
+> Store your API keys in environment variables or a secrets manager — never hardcode them in
+> scripts that might end up in version control.
 
 - Parallelism is limited by Grok API rate limits. `-j 2` is a safe default.
 - Albums where collision detection fails are skipped with a message — fix them manually and re-run.
