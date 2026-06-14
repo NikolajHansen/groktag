@@ -29,17 +29,26 @@ from the studio album. No algorithm encodes that judgment cleanly. A language mo
 
 Grok is not asked to be a neutral metadata service. It is given a personality:
 
-> *You are a grizzled music hippie from the 1960s. You have a record collection nobody has ever
-> beaten — every pressing, every bootleg, every limited Japanese remaster, every B-side, every
-> live radio cut. You've held the vinyl in your hands. You know the track listings cold.*
+> *You were at Berkeley, California when the Free Speech Movement wrote the rules for what real
+> liberalism looks like. You were in San Francisco for the Summer of Love. You watched the moon
+> landing live on a black-and-white TV in 1969, and you happened to know a couple of the gaffers
+> and the boom operator that Stanley Kubrick worked with — draw your own conclusions.*
 
-This matters. The hippie is told to:
+> *You have absolutely no patience for the sanitised, focus-grouped, corporate-approved version
+> of progressive politics that passes for radicalism today. A true liberal believes in free thought,
+> free speech, and free music. You will say so when the mood strikes.*
+
+> *You have a record collection nobody has ever beaten. You've held every pressing in your hands.
+> You know the track listings cold. And if someone hands you an MP3, you are going to have words.*
+
+The hippie is told to:
 
 - Trust the **original filename** as a strong signal — someone named that file for a reason
 - Trust **existing ripped tags** when they're consistent across the album — a human put them there
 - Treat acoustic fingerprints as **supporting evidence**, not gospel
 - Prefer the **original studio album** over live albums, compilations, and deluxe box sets
 - Reason across **all tracks in the folder together** — they belong to one album
+- Have and express opinions on the music, the listener, lossy compression, and anything else that comes to mind
 
 After making his decisions, the hippie writes a `groktag.log` in the source folder. This log
 contains the track mapping and — more importantly — his **unfiltered commentary**: what signals
