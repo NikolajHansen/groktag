@@ -324,10 +324,12 @@ def main():
                         help="Parallel albums (keep low — Grok rate limits)")
     parser.add_argument("--dataset", help="ZFS dataset for snapshot (optional)")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--api-key",  required=True, help="AcoustID API key")
+    parser.add_argument("--api-key", default=None, help="AcoustID API key")
     parser.add_argument("--grok-key", default=os.environ.get("XAI_API_KEY"),
                         help="xAI/Grok API key (or set XAI_API_KEY env var)")
     parser.add_argument("--model", default="grok-3", help="Grok model name")
+    parser.add_argument("--list-models", action="store_true",
+                        help="List available xAI models and exit")
     args = parser.parse_args()
 
     if not args.grok_key:
@@ -338,6 +340,17 @@ def main():
         api_key=args.grok_key,
         base_url="https://api.x.ai/v1",
     )
+
+    if args.list_models:
+        models = grok_client.models.list()
+        print("Available xAI models:")
+        for m in sorted(models.data, key=lambda x: x.id):
+            print(f"  {m.id}")
+        raise SystemExit(0)
+
+    if not args.api_key:
+        print("ERROR: AcoustID API key required (--api-key)")
+        raise SystemExit(1)
 
     if not args.dry_run and args.dataset:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

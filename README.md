@@ -196,6 +196,7 @@ groktag [root]                    # default: current directory
   --api-key KEY                   # AcoustID API key (required)
   --grok-key KEY                  # xAI key (or set XAI_API_KEY env var)
   --model grok-3                  # Grok model (default: grok-3)
+  --list-models                   # List available xAI models and exit
   -j, --jobs N                    # Parallel albums (default: 2; keep low for rate limits)
   --dataset POOL/DATASET          # ZFS dataset to snapshot before run
   --dry-run                       # Preview only, no changes
