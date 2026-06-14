@@ -4,7 +4,7 @@ then asks Grok to make the final metadata decisions like the grizzled crate-
 digger he is.
 """
 import acoustid, musicbrainzngs, mutagen, openai, json, os, shutil, subprocess
-import argparse, re
+import argparse, re, threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict, Counter
@@ -13,6 +13,33 @@ from datetime import datetime
 musicbrainzngs.set_useragent("groktag", "1.0", "https://github.com/NikolajHansen/groktag")
 
 LOGFILE = "groktag.log"
+
+# Thread-safe cache for MB release tracebacks — fetched once, reused across files
+_release_cache = {}
+_release_cache_lock = threading.Lock()
+
+
+def fetch_tracklist(release_id):
+    """Fetch and cache the track listing for a MusicBrainz release ID."""
+    with _release_cache_lock:
+        if release_id in _release_cache:
+            return _release_cache[release_id]
+    try:
+        rel = musicbrainzngs.get_release_by_id(release_id, includes=['recordings'])
+        tracks = []
+        for medium in rel['release'].get('medium-list', []):
+            disc = medium.get('position', 1)
+            for track in medium.get('track-list', []):
+                pos = str(track.get('position', track.get('number', '?'))).zfill(2)
+                title = track.get('recording', {}).get('title', track.get('title', ''))
+                tracks.append({'disc': disc, 'position': pos, 'title': title})
+        with _release_cache_lock:
+            _release_cache[release_id] = tracks
+        return tracks
+    except Exception:
+        with _release_cache_lock:
+            _release_cache[release_id] = []
+        return []
 
 GROK_SYSTEM = """\
 You are a grizzled music hippie from the 1960s. You have a record collection \
@@ -127,7 +154,7 @@ def collect_file_data(file, api_key):
         matches = list(acoustid.match(api_key, str(file)))
         if matches and matches[0][0] >= 0.7:
             score, rid = matches[0][:2]
-            data['acoustid'] = {'score': round(score, 3), 'recording_id': rid}
+            data['acoustid'] = {'score': round(score, 3)}
             rec = musicbrainzngs.get_recording_by_id(
                 rid, includes=['artists', 'releases', 'media', 'release-groups'])
             recording = rec['recording']
@@ -135,21 +162,37 @@ def collect_file_data(file, api_key):
             data['acoustid']['mb_artist'] = (
                 recording['artist-credit'][0]['artist']['name']
                 if recording.get('artist-credit') else '')
+
+            # Build candidates with a quick score so we know which to fetch tracebacks for
+            candidates = []
             for rel in recording.get('release-list', []):
-                track_count = sum(
-                    int(m.get('track-count', 0))
-                    for m in rel.get('medium-list', []))
+                track_count = sum(int(m.get('track-count', 0)) for m in rel.get('medium-list', []))
                 disc_count = len(rel.get('medium-list', []))
                 rg = rel.get('release-group', {})
-                data['mb_candidates'].append({
-                    'release_id': rel.get('id'),
-                    'release':    rel.get('title', ''),
-                    'year':       rel.get('date', '')[:4],
-                    'status':     rel.get('status', ''),
-                    'type':       rg.get('type', ''),
-                    'discs':      disc_count,
-                    'tracks':     track_count,
+                rel_score = 0
+                if rel.get('status') == 'Official': rel_score += 2
+                if rg.get('type') == 'Album':        rel_score += 2
+                rel_score -= disc_count
+                candidates.append({
+                    '_id':    rel.get('id'),
+                    '_score': rel_score,
+                    'release':  rel.get('title', ''),
+                    'year':     rel.get('date', '')[:4],
+                    'status':   rel.get('status', ''),
+                    'type':     rg.get('type', ''),
+                    'discs':    disc_count,
+                    'tracks':   track_count,
                 })
+
+            # Sort by score descending; fetch tracklist for top 2
+            candidates.sort(key=lambda c: c['_score'], reverse=True)
+            for i, c in enumerate(candidates):
+                rid_for_fetch = c.pop('_id')
+                c.pop('_score')
+                if i < 2:
+                    c['tracklist'] = fetch_tracklist(rid_for_fetch)
+                data['mb_candidates'].append(c)
+
     except Exception as e:
         data['acoustid_error'] = str(e)
     return data
