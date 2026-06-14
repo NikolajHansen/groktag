@@ -331,8 +331,7 @@ enabling on large collections.
 
 - `--genre-filter` to only process certain genres (if tags are already partially populated)
 - Embedded cover art — write `cover.jpg` into the FLAC metadata block, not just as a sidecar file
-- MusicBrainz Release ID tag (`MUSICBRAINZ_ALBUMID`) for perfect library matching in Beets/Picard
+- `MUSICBRAINZ_ALBUMID` tag — write the MB release ID we already have into the file tags for perfect library matching in Beets/Picard (MusicBrainz is free, no key needed — we're already querying it)
 - `--undo` mode — groktag.log records original filenames, so a rollback is theoretically possible
-- Web UI for reviewing the hippie's decisions before applying them
 
 GPL-3.0 — see [LICENSE](LICENSE).
