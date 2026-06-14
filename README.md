@@ -195,7 +195,7 @@ XAI_API_KEY=your_xai_key groktag /path/to/music \
 groktag [root]                    # default: current directory
   --api-key KEY                   # AcoustID API key (required)
   --grok-key KEY                  # xAI key (or set XAI_API_KEY env var)
-  --model grok-3                  # Grok model (default: grok-3)
+  --model grok-4-fast             # Grok model (default: grok-4-fast — cheapest; use --list-models)
   --list-models                   # List available xAI models and exit
   -j, --jobs N                    # Parallel albums (default: 2; keep low for rate limits)
   --dataset POOL/DATASET          # ZFS dataset to snapshot before run

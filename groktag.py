@@ -327,7 +327,8 @@ def main():
     parser.add_argument("--api-key", default=None, help="AcoustID API key")
     parser.add_argument("--grok-key", default=os.environ.get("XAI_API_KEY"),
                         help="xAI/Grok API key (or set XAI_API_KEY env var)")
-    parser.add_argument("--model", default="grok-3", help="Grok model name")
+    parser.add_argument("--model", default="grok-4-fast",
+                        help="Grok model name (default: grok-4-fast, cheapest; use --list-models to see all)")
     parser.add_argument("--list-models", action="store_true",
                         help="List available xAI models and exit")
     args = parser.parse_args()
