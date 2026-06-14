@@ -109,29 +109,72 @@ almost certainly also "Back in Black" even if their fingerprints are confused.
 - An [AcoustID API key](https://acoustid.org/login) (free)
 - An [xAI API key](https://console.x.ai/) for Grok
 
-### Python packages
-
-**FreeBSD (pkg):**
-```sh
-pkg install py311-acoustid py311-musicbrainzngs py311-mutagen py311-openai
-```
-
-**Other systems (pip):**
-```sh
-pip install pyacoustid musicbrainzngs mutagen openai
-```
-
 ---
 
 ## Installation
 
+### FreeBSD
+
 ```sh
+pkg install chromaprint rsgain py311-acoustid py311-musicbrainzngs py311-mutagen py311-openai
 git clone https://github.com/NikolajHansen/groktag.git
-cd groktag
-# install dependencies (see above)
-cp groktag.py ~/bin/groktag
+cp groktag/groktag.py ~/bin/groktag
 chmod +x ~/bin/groktag
 ```
+
+### Linux (Debian/Ubuntu)
+
+```sh
+sudo apt install chromaprint-tools rsgain python3-pip
+pip install pyacoustid musicbrainzngs mutagen openai
+git clone https://github.com/NikolajHansen/groktag.git
+sudo cp groktag/groktag.py /usr/local/bin/groktag
+sudo chmod +x /usr/local/bin/groktag
+```
+
+> `rsgain` may not be in apt on older distros — build from source or grab a release binary from
+> [github.com/complexlogic/rsgain](https://github.com/complexlogic/rsgain/releases).
+
+### Linux (Arch)
+
+```sh
+sudo pacman -S chromaprint rsgain python-pip
+pip install pyacoustid musicbrainzngs mutagen openai
+git clone https://github.com/NikolajHansen/groktag.git
+sudo cp groktag/groktag.py /usr/local/bin/groktag
+sudo chmod +x /usr/local/bin/groktag
+```
+
+### macOS
+
+```sh
+brew install chromaprint rsgain python
+pip3 install pyacoustid musicbrainzngs mutagen openai
+git clone https://github.com/NikolajHansen/groktag.git
+cp groktag/groktag.py ~/bin/groktag
+chmod +x ~/bin/groktag
+```
+
+### Windows
+
+1. Install [Python 3.10+](https://www.python.org/downloads/windows/) — tick **Add to PATH**
+2. Install [Chromaprint](https://acoustid.org/chromaprint) — extract `fpcalc.exe`, put it somewhere on your `PATH` (e.g. `C:\Windows\System32`)
+3. Install [rsgain](https://github.com/complexlogic/rsgain/releases) — grab the Windows release, add to `PATH`
+4. Open a command prompt:
+
+```bat
+pip install pyacoustid musicbrainzngs mutagen openai
+git clone https://github.com/NikolajHansen/groktag.git
+```
+
+5. Run groktag directly with Python:
+
+```bat
+set XAI_API_KEY=your_xai_key
+python groktag\groktag.py C:\Music --api-key your_acoustid_key --dry-run
+```
+
+> The hippie has strong opinions about people who store lossless audio on Windows. He will share them.
 
 ---
 
