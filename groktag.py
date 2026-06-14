@@ -10,7 +10,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict, Counter
 from datetime import datetime
 
-musicbrainzngs.set_useragent("hsys-retag", "1.0", "https://hsys.dk")
+musicbrainzngs.set_useragent("groktag", "1.0", "https://github.com/NikolajHansen/groktag")
+
+LOGFILE = "groktag.log"
 
 GROK_SYSTEM = """\
 You are a grizzled music hippie from the 1960s. You have a record collection \
@@ -37,11 +39,18 @@ Rules:
 - All tracks in one folder belong to ONE album. Reach a consensus.
 - If you genuinely cannot determine a field, use null.
 
-Respond ONLY with a JSON array — no prose, no markdown, no code fences. \
-Each element corresponds to one input file, in the same order, with keys: \
-  filename (original, unchanged), artist, albumartist, album, year, \
-  tracknumber (zero-padded string e.g. "04"), discnumber (string, "1" if \
-  single-disc), title
+Respond ONLY with a JSON object — no prose outside the JSON, no markdown, \
+no code fences. The object has two keys:
+
+  "tracks": array of track decisions, one per input file in the same order, \
+each with keys: filename (original, unchanged), artist, albumartist, album, \
+year, tracknumber (zero-padded string e.g. "04"), discnumber (string, "1" if \
+single-disc), title
+
+  "commentary": your unfiltered account of the analysis — what signals you \
+trusted and why, where the fingerprinter led you astray, your honest opinion \
+of the album itself, and your frank assessment of the kind of person who \
+listens to this music. Write it in your own voice. Hold nothing back.
 """
 
 
@@ -108,8 +117,6 @@ def collect_file_data(file, api_key):
             data['acoustid']['mb_artist'] = (
                 recording['artist-credit'][0]['artist']['name']
                 if recording.get('artist-credit') else '')
-
-            file_count_hint = None  # filled later by caller
             for rel in recording.get('release-list', []):
                 track_count = sum(
                     int(m.get('track-count', 0))
@@ -131,7 +138,7 @@ def collect_file_data(file, api_key):
 
 
 def ask_grok(album_data, grok_client, model='grok-3'):
-    """Send album data to Grok, get back a list of metadata decisions."""
+    """Send album data to Grok, get back tracks + commentary."""
     prompt = json.dumps(album_data, ensure_ascii=False, indent=2)
     resp = grok_client.chat.completions.create(
         model=model,
@@ -139,18 +146,42 @@ def ask_grok(album_data, grok_client, model='grok-3'):
             {'role': 'system', 'content': GROK_SYSTEM},
             {'role': 'user',   'content': prompt},
         ],
-        temperature=0.2,
+        temperature=0.7,  # a little warmth for the commentary
     )
     raw = resp.choices[0].message.content.strip()
-    # Strip accidental markdown fences
     raw = re.sub(r'^```[a-z]*\n?', '', raw)
     raw = re.sub(r'\n?```$', '', raw)
-    return json.loads(raw)
+    result = json.loads(raw)
+    tracks = result.get('tracks', result) if isinstance(result, dict) else result
+    commentary = result.get('commentary', '') if isinstance(result, dict) else ''
+    return tracks, commentary
 
 
-def apply_decisions(decisions, track_data_by_name, new_dir, dry_run, root):
+def write_log(source_dir, artist, album, year, decisions, commentary, dry_run):
+    """Write groktag.log into the source directory."""
+    if dry_run:
+        return
+    lines = [
+        f"groktag log — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Album  : {artist} — {album} ({year})",
+        "",
+        "Track decisions:",
+    ]
+    for dec in decisions:
+        fn   = dec.get('filename', '?')
+        num  = dec.get('tracknumber', '?')
+        disc = dec.get('discnumber', '1')
+        title = dec.get('title', '?')
+        prefix = f"{disc}-{num}" if disc != '1' else num
+        lines.append(f"  {fn}  →  {prefix} - {title}")
+    if commentary:
+        lines += ["", "--- The Hippie Speaks ---", "", commentary]
+    log_path = source_dir / LOGFILE
+    log_path.write_text("\n".join(lines) + "\n", encoding='utf-8')
+
+
+def apply_decisions(decisions, track_data_by_name, new_dir, dry_run):
     """Tag and move files according to Grok's decisions."""
-    # First pass: collision check
     planned = {}
     collision = False
     for dec in decisions:
@@ -214,7 +245,11 @@ def process_album(album_files, root, api_key, grok_client, dry_run=False):
     source_dir = album_files[0].parent
     file_count = len(album_files)
 
-    # Collect AcoustID + MB data for every file (threaded internally if needed)
+    # Skip already-processed folders
+    if (source_dir / LOGFILE).exists():
+        print(f"Skipping {source_dir.name} (groktag.log found)")
+        return
+
     print(f"Fingerprinting {file_count} files in {source_dir.name} …")
     album_data = []
     track_data_by_name = {}
@@ -223,10 +258,9 @@ def process_album(album_files, root, api_key, grok_client, dry_run=False):
         album_data.append(d)
         track_data_by_name[file.name] = file
 
-    # Ask Grok
     print(f"  Asking Grok …")
     try:
-        decisions = ask_grok(album_data, grok_client)
+        decisions, commentary = ask_grok(album_data, grok_client)
     except Exception as e:
         print(f"  Grok failed: {e}")
         return
@@ -235,16 +269,21 @@ def process_album(album_files, root, api_key, grok_client, dry_run=False):
         print(f"  Grok returned nothing.")
         return
 
-    # Log consensus
     albums  = Counter(d.get('album', '?') for d in decisions)
     artists = Counter(d.get('albumartist') or d.get('artist', '?') for d in decisions)
     consensus_artist = sanitize(artists.most_common(1)[0][0])
     consensus_album  = sanitize(albums.most_common(1)[0][0])
+    consensus_year   = Counter(d.get('year', '') for d in decisions).most_common(1)[0][0]
     print(f"  Consensus — Artist: '{artists.most_common(1)[0][0]}' | Album: '{albums.most_common(1)[0][0]}'")
+
+    if commentary:
+        print(f"\n  💬 The Hippie Says:\n")
+        for line in commentary.splitlines():
+            print(f"     {line}")
+        print()
 
     new_dir = root / consensus_artist / consensus_album
 
-    # Cover art
     cover_src = find_cover_art(source_dir)
     if dry_run:
         print(f"  Cover: {cover_src.name if cover_src else 'not found'}")
@@ -256,19 +295,23 @@ def process_album(album_files, root, api_key, grok_client, dry_run=False):
                 shutil.copy2(str(cover_src), str(dest_cover))
                 print(f"  Cover: {cover_src.name} → cover.jpg")
 
-    ok = apply_decisions(decisions, track_data_by_name, new_dir, dry_run, root)
+    ok = apply_decisions(decisions, track_data_by_name, new_dir, dry_run)
 
-    if ok and not dry_run:
-        try:
-            subprocess.run(["rsgain", "easy", "-S", str(new_dir)],
-                           check=True, capture_output=True)
-            print(f"  Gain applied: {new_dir.relative_to(root)}")
-        except Exception as e:
-            print(f"  rsgain failed: {e}")
+    if ok:
+        write_log(source_dir, artists.most_common(1)[0][0], albums.most_common(1)[0][0],
+                  consensus_year, decisions, commentary, dry_run)
+        if not dry_run:
+            try:
+                subprocess.run(["rsgain", "easy", "-S", str(new_dir)],
+                               check=True, capture_output=True)
+                print(f"  Gain applied: {new_dir.relative_to(root)}")
+            except Exception as e:
+                print(f"  rsgain failed: {e}")
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="FLAC tagger powered by AcoustID, MusicBrainz and a grizzled hippie (Grok/xAI)")
     parser.add_argument("root", nargs="?", default=".")
     parser.add_argument("-j", "--jobs", type=int, default=2,
                         help="Parallel albums (keep low — Grok rate limits)")
@@ -305,7 +348,6 @@ def main():
 
     print(f"Found {len(groups)} album directories")
 
-    # Lower parallelism — each album fires a Grok API call
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = [
             pool.submit(process_album, files, root, args.api_key, grok_client, args.dry_run)

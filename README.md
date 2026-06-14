@@ -41,9 +41,10 @@ This matters. The hippie is told to:
 - Prefer the **original studio album** over live albums, compilations, and deluxe box sets
 - Reason across **all tracks in the folder together** — they belong to one album
 
-The result is that groktag handles edge cases that defeat rule-based algorithms: misidentified
-tracks, multi-disc albums, bonus disc confusion, EP vs. album disambiguation, and tracks that
-appear on multiple releases with different numbers.
+After making his decisions, the hippie writes a `groktag.log` in the source folder. This log
+contains the track mapping and — more importantly — his **unfiltered commentary**: what signals
+he trusted, where the fingerprinter was wrong, his honest opinion of the album, and his frank
+assessment of the kind of person who listens to this music. He holds nothing back.
 
 ---
 
@@ -87,6 +88,11 @@ For each album directory (all .flac files in the same folder = one album):
 
   8. REPLAYGAIN
      Run rsgain on the completed album directory.
+
+  9. LOG
+     Write groktag.log into the source folder containing: the track mapping,
+     and the hippie's unfiltered commentary on the album and its listeners.
+     On subsequent runs, any folder containing groktag.log is skipped entirely.
 ```
 
 One Grok API call is made per album directory. The model sees all tracks together, which allows
@@ -179,6 +185,8 @@ groktag [root]                    # default: current directory
 - Parallelism is limited by Grok API rate limits. `-j 2` is a safe default.
 - Albums where collision detection fails are skipped with a message — fix them manually and re-run.
 - groktag is idempotent: re-running on already-tagged files is safe (cover art won't be overwritten).
+- Each processed source folder receives a `groktag.log` file. On re-run, folders containing this file are skipped automatically — no re-fingerprinting, no wasted API calls.
+- The log contains the track mapping and the hippie's commentary. Read it for entertainment.
 - AcoustID fingerprinting requires `fpcalc` on `PATH`. Install Chromaprint for your platform.
 
 ---
