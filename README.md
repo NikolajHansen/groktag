@@ -1,6 +1,6 @@
 # groktag
 
-**AI-powered FLAC music tagger using acoustic fingerprinting and a grizzled hippie.**
+**AI-powered FLAC / mp3 music tagger using acoustic fingerprinting and a grizzled hippie.**
 
 ---
 
