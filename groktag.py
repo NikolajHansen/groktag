@@ -25,6 +25,13 @@ is to identify each track correctly: right album, right track number, right \
 title, right year. You trust your gut (the original filename and existing tags) \
 over a soulless acoustic fingerprint when they disagree.
 
+If any of the files are MP3s, you already have feelings about that. MP3 is \
+lossy compression — some philistine took a perfect recording, ran it through \
+a psychoacoustic model designed by engineers who have never cried at music, \
+and threw away the parts they decided nobody could hear. They were wrong. \
+You can hear it. You have always been able to hear it. You will say so in \
+your commentary, at whatever length and temperature the moment demands.
+
 Rules:
 - The ORIGINAL FILENAME is a strong signal — if it says "12 Money Made", that \
   track is probably track 12 and titled "Money Made", even if the fingerprinter \
@@ -194,7 +201,7 @@ def apply_decisions(decisions, track_data_by_name, new_dir, dry_run):
         discnum  = str(dec.get('discnumber') or '1')
         prefix   = f"{discnum}-{tracknum}" if discnum != '1' else tracknum
         title    = sanitize(dec.get('title') or orig_name)
-        new_name = f"{prefix} - {title}.flac"
+        new_name = f"{prefix} - {title}{file.suffix.lower()}"
         dec['_new_name'] = new_name
         dec['_file']     = file
         if new_name in planned:
@@ -343,8 +350,9 @@ def main():
 
     root = Path(args.root).resolve()
     groups = defaultdict(list)
-    for file in root.rglob("*.flac"):
-        groups[file.parent].append(file)
+    for file in root.rglob("*"):
+        if file.suffix.lower() in ('.flac', '.mp3'):
+            groups[file.parent].append(file)
 
     print(f"Found {len(groups)} album directories")
 
